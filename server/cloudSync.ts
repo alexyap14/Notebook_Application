@@ -5,14 +5,14 @@ const config = require('./Config');
 // Dynamically build the base URL
 const API_BASE = `${config.settings.serverPath}/api`; 
 
-export async function fetchAllNotesFromCloud(): Promise<NoteItem[]> {
+export async function fetchAllNotesFromCloud(): Promise<NoteItem[] | null> {
   try {
     const res = await fetch(`${API_BASE}/notes`); // GET request to fetch data
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     return await res.json(); // Parse JSON response
   } catch (err) {
     console.error('Cloud fetch error:', err);
-    return [];
+    return null;
   }
 }
 
