@@ -59,7 +59,7 @@ export default function HomeScreen({ navigation }: any) {
     const loadInitialData = async () => {
       setIsSyncing(true);
       const cloudNotes = await fetchAllNotesFromCloud();
-      if (cloudNotes.length > 0) {
+      if (cloudNotes !== null) {
         setNotes(cloudNotes);
         await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(cloudNotes));
       } else {
@@ -108,17 +108,25 @@ export default function HomeScreen({ navigation }: any) {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          // Data Persistence: Move to local trash
+          const deletedFromCloud = await deleteNoteInCloud(noteId);
+
+          if (!deletedFromCloud) {
+            Alert.alert(
+              'Delete Failed',
+              'The note could not be deleted from the server. Please check your connection and try again.'
+            );
+            return;
+          }
+
+          // Move the successfully deleted note to local trash
           const trashJson = await AsyncStorage.getItem(TRASH_KEY);
           const trash = trashJson ? JSON.parse(trashJson) : [];
           trash.push({ ...noteToDelete, deletedAt: new Date().toISOString() });
           await AsyncStorage.setItem(TRASH_KEY, JSON.stringify(trash));
 
-          // Cloud Connectivity: Delete from server
           const updated = notes.filter(n => n.id !== noteId);
           setNotes(updated);
           await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(updated));
-          await deleteNoteInCloud(noteId);
         },
       },
     ]);
@@ -161,10 +169,12 @@ export default function HomeScreen({ navigation }: any) {
     setIsSyncing(true);
     try {
       const cloudNotes = await fetchAllNotesFromCloud();
-      if (cloudNotes.length > 0) {
-        setNotes(cloudNotes);
-        await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(cloudNotes));
+      if (cloudNotes === null) {
+        throw new Error('Could not fetch notes from the server');
       }
+
+      setNotes(cloudNotes);
+      await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(cloudNotes));
       Alert.alert('Sync Complete', 'Your notes are up to date');
     } catch (error) {
       console.error(error);
@@ -214,7 +224,12 @@ export default function HomeScreen({ navigation }: any) {
         onRefresh={async () => {
           setIsSyncing(true);
           const cloudNotes = await fetchAllNotesFromCloud();
-          if (cloudNotes.length > 0) setNotes(cloudNotes);
+          if (cloudNotes !== null) {
+            setNotes(cloudNotes);
+            await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(cloudNotes));
+          } else {
+            Alert.alert('Sync Error', 'Could not refresh notes from the server.');
+          }
           setIsSyncing(false);
         }}
         ListEmptyComponent={
